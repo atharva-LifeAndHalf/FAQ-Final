@@ -39,14 +39,14 @@ def initialize_rag():
         
         # Initialize LLM
         llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",  # Use stable model
+            model="gemini-2.5-flash",  # Use stable model
             google_api_key=gemini_key,
             temperature=0.3
         )
         print("✓ LLM initialized")
         
         # Load Excel file
-        excel_path = "faq.xlsx"
+        excel_path = "Files.xlsx"
         
         # Check if file exists
         if not os.path.exists(excel_path):
@@ -181,3 +181,4 @@ def ask_bot(query):
         import traceback
         traceback.print_exc()
         return "Sorry, I encountered an error. Please try again or wait for human assistance."
+
