@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>L&H FAQ BOT</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="chat-container">
+
+    <img src="{{ url_for('static', filename='l&h_logo.png') }}" class="logo">
+
+    <h2 class="title">L&H FAQ BOT</h2>
+
+    <div id="chat-box"></div>
+
+    <form id="chat-form">
+        <input type="text" id="user-input" placeholder="Type your question..." required>
+        <button>Send</button>
+    </form>
+
+</div>
+
+<script>
+    const form = document.getElementById("chat-form");
+    const chatBox = document.getElementById("chat-box");
+
+    form.addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        let text = document.getElementById("user-input").value;
+        document.getElementById("user-input").value = "";
+
+        chatBox.innerHTML += `<div class="user">${text}</div>`;
+
+        fetch("/ask", {
+            method: "POST",
+            headers: {"Content-Type": "application/x-www-form-urlencoded"},
+            body: "message=" + encodeURIComponent(text)
+        })
+        .then(res => res.json())
+        .then(data => {
+            chatBox.innerHTML += `<div class="bot">${data.reply}</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+    });
+</script>
+
+</body>
+</html>
