@@ -3,14 +3,13 @@ import time
 import random
 import os
 
-# Create Flask app FIRST
 app = Flask(__name__)
 
-# Global variables
 conversation = []
 last_time = time.time()
 TIMEOUT = 300
 rag_initialized = False
+ask_bot_func = None
 
 def reset_if_inactive():
     global conversation, last_time
@@ -27,7 +26,7 @@ def health():
 
 @app.route("/ask", methods=["POST"])
 def ask():
-    global conversation, last_time, rag_initialized
+    global conversation, last_time, rag_initialized, ask_bot_func
     
     reset_if_inactive()
     user_msg = request.form.get("message", "").strip()
@@ -38,7 +37,6 @@ def ask():
     last_time = time.time()
     conversation.append({"role": "user", "text": user_msg})
     
-    # Greetings
     if user_msg.lower() in ["hi", "hello", "hey", "yo", "hola"]:
         bot_reply = random.choice([
             "Hello! How can I assist you today?",
@@ -48,22 +46,19 @@ def ask():
         conversation.append({"role": "bot", "text": bot_reply})
         return jsonify({"reply": bot_reply})
     
-    # Short responses
     if user_msg.lower() in ["ok", "okay", "k", "thanks", "thank you"]:
         bot_reply = random.choice(["You're welcome! 😊", "Glad I could help!", "Anytime!"])
         conversation.append({"role": "bot", "text": bot_reply})
         return jsonify({"reply": bot_reply})
     
-    # RAG response
     try:
-        # Lazy import - only load when needed
         if not rag_initialized:
             print("🔄 First query - initializing RAG...")
-            from rag_engine import ask_bot
-            globals()['ask_bot'] = ask_bot
+            from rag_engine import ask_bot as ask_bot_import
+            ask_bot_func = ask_bot_import
             rag_initialized = True
         
-        bot_raw = ask_bot(user_msg)
+        bot_raw = ask_bot_func(user_msg)
         
         if "don't know" in bot_raw.lower():
             final = bot_raw
@@ -81,7 +76,6 @@ def ask():
         conversation.append({"role": "bot", "text": error_msg})
         return jsonify({"reply": error_msg})
 
-# This block should NOT run on Gunicorn
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
