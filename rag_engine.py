@@ -29,7 +29,7 @@ def initialize_rag():
         
         # LLM
         llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             google_api_key=gemini_key,
             temperature=0.3
         )
@@ -123,3 +123,4 @@ def ask_bot(query):
     except Exception as e:
         print(f"❌ Query error: {e}")
         return "Sorry, I encountered an error. Please try again."
+
