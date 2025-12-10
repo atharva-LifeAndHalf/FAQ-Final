@@ -1,17 +1,22 @@
 import os
+import json
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.document_loaders import UnstructuredExcelLoader
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain.prompts import PromptTemplate
-from langchain.chains import RetrievalQA
+import google.generativeai as genai
+import openpyxl
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
-chain = None
+# Global variables
+faq_data = []
+vectorizer = None
+tfidf_matrix = None
+genai_model = None
 
 def initialize_rag():
-    global chain
-    if chain is not None:
+    global faq_data, vectorizer, tfidf_matrix, genai_model
+    
+    if genai_model is not None:
         return True
     
     try:
@@ -27,71 +32,37 @@ def initialize_rag():
         
         print("✓ API key loaded")
         
-        # LLM
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            google_api_key=gemini_key,
-            temperature=0.3
-        )
-        print("✓ LLM ready")
+        # Initialize Gemini
+        genai.configure(api_key=gemini_key)
+        genai_model = genai.GenerativeModel('gemini-2.5-flash')
+        print("✓ Gemini initialized")
         
-        # Excel
+        # Load Excel
         excel_path = "Files.xlsx"
         if not os.path.exists(excel_path):
             print(f"❌ File not found: {excel_path}")
-            print(f"Available files: {os.listdir('.')}")
             return False
         
         print(f"✓ Found {excel_path}")
         
-        loader = UnstructuredExcelLoader(excel_path, mode="elements")
-        docs = loader.load()
-        texts = [d.page_content for d in docs if d.page_content.strip()]
+        # Read Excel with openpyxl (lightweight)
+        wb = openpyxl.load_workbook(excel_path, read_only=True)
+        sheet = wb.active
         
-        print(f"✓ Loaded {len(texts)} docs")
+        # Extract all text from Excel
+        for row in sheet.iter_rows(values_only=True):
+            row_text = " ".join([str(cell) for cell in row if cell])
+            if row_text.strip():
+                faq_data.append(row_text.strip())
         
-        # Embeddings
-        print("⏳ Loading embeddings...")
-        embedding_model = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'},
-            encode_kwargs={'normalize_embeddings': True}
-        )
-        print("✓ Embeddings ready")
+        wb.close()
+        print(f"✓ Loaded {len(faq_data)} rows")
         
-        # FAISS
-        vector_path = "faiss_index"
-        if not os.path.exists(vector_path):
-            print("⏳ Creating FAISS index...")
-            db = FAISS.from_texts(texts, embedding_model)
-            db.save_local(vector_path)
-            print("✓ Index created")
-        else:
-            print("⏳ Loading FAISS index...")
-            db = FAISS.load_local(vector_path, embedding_model, allow_dangerous_deserialization=True)
-            print("✓ Index loaded")
-        
-        retriever = db.as_retriever(search_kwargs={"k": 3})
-        
-        # Chain
-        prompt = PromptTemplate(
-            input_variables=["context", "question"],
-            template="""You are a helpful FAQ assistant for Life & Half.
-Answer based ONLY on the context below. If unsure, say "I don't know."
-
-Context: {context}
-
-Question: {question}
-
-Answer:"""
-        )
-        
-        chain = RetrievalQA.from_chain_type(
-            llm=llm,
-            retriever=retriever,
-            return_source_documents=True,
-            chain_type_kwargs={"prompt": prompt}
-        )
+        # Create TF-IDF vectors (lightweight alternative to embeddings)
+        print("⏳ Creating TF-IDF vectors...")
+        vectorizer = TfidfVectorizer(max_features=500, stop_words='english')
+        tfidf_matrix = vectorizer.fit_transform(faq_data)
+        print("✓ Vectors created")
         
         print("✅ RAG initialized!")
         print("=" * 50)
@@ -103,24 +74,61 @@ Answer:"""
         traceback.print_exc()
         return False
 
+
+def find_relevant_context(query, top_k=3):
+    """Find most relevant FAQ entries using TF-IDF similarity"""
+    try:
+        query_vec = vectorizer.transform([query])
+        similarities = cosine_similarity(query_vec, tfidf_matrix).flatten()
+        top_indices = np.argsort(similarities)[-top_k:][::-1]
+        
+        relevant_docs = [faq_data[i] for i in top_indices if similarities[i] > 0.1]
+        return "\n\n".join(relevant_docs) if relevant_docs else ""
+        
+    except Exception as e:
+        print(f"❌ Context retrieval error: {e}")
+        return ""
+
+
 def ask_bot(query):
     if not initialize_rag():
         return "I'm currently unavailable. Please try again later."
     
     try:
-        response = chain({"query": query})
-        answer = response["result"]
-        context = " ".join([d.page_content for d in response.get("source_documents", [])]).strip()
+        # Find relevant context
+        context = find_relevant_context(query)
         
-        if not context or len(context) < 10:
+        if not context or len(context) < 20:
             return "I don't know. Please wait for the Human reply."
         
-        if any(phrase in answer.lower() for phrase in ["i don't know", "not sure", "cannot"]):
+        # Create prompt
+        prompt = f"""You are a helpful FAQ assistant for Life & Half.
+Answer the question based ONLY on the context below. If the answer is not in the context, say "I don't know."
+
+Context:
+{context}
+
+Question: {query}
+
+Answer:"""
+        
+        # Get response from Gemini
+        response = genai_model.generate_content(prompt)
+        answer = response.text.strip()
+        
+        # Check for uncertain answers
+        if any(phrase in answer.lower() for phrase in ["i don't know", "not sure", "cannot", "no information"]):
             return "I don't know. Please wait for the Human reply."
         
         return answer
         
     except Exception as e:
         print(f"❌ Query error: {e}")
+        import traceback
+        traceback.print_exc()
         return "Sorry, I encountered an error. Please try again."
+```
 
+## **Update Procfile:**
+```
+web: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 180 --max-requests 100 --max-requests-jitter 10
