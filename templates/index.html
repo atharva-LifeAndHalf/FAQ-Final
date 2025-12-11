@@ -39,22 +39,19 @@
                     <p class="empty-subtitle">Ask me anything about Life & Half services, policies, or general inquiries</p>
                     
                     <div class="suggestion-cards">
+
                         <div class="suggestion-card" onclick="sendSuggestion('What services does Life & Half offer?')">
                             <div class="suggestion-icon">🎯</div>
                             <div class="suggestion-text">What services does Life & Half offer?</div>
                         </div>
-                        <div class="suggestion-card" onclick="sendSuggestion('Tell me about your pricing')">
-                            <div class="suggestion-icon">💰</div>
-                            <div class="suggestion-text">Tell me about your pricing</div>
-                        </div>
+
                         <div class="suggestion-card" onclick="sendSuggestion('How do I contact support?')">
                             <div class="suggestion-icon">📞</div>
                             <div class="suggestion-text">How do I contact support?</div>
                         </div>
-                        <div class="suggestion-card" onclick="sendSuggestion('What are your business hours?')">
-                            <div class="suggestion-icon">⏰</div>
-                            <div class="suggestion-text">What are your business hours?</div>
-                        </div>
+
+                        <!-- ❌ Removed pricing and business hours cards -->
+
                     </div>
                 </div>
 
@@ -105,7 +102,7 @@
             this.style.height = Math.min(this.scrollHeight, 200) + 'px';
         });
 
-        // Handle Enter key (send) vs Shift+Enter (new line)
+        // Handle Enter key
         userInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -126,7 +123,6 @@
         }
 
         function addMessage(text, isUser) {
-            // Hide empty state
             if (emptyState) {
                 emptyState.style.display = 'none';
             }
@@ -171,21 +167,16 @@
             const text = userInput.value.trim();
             if (!text) return;
 
-            // Disable input while processing
             userInput.disabled = true;
             sendButton.disabled = true;
 
-            // Add user message
             addMessage(text, true);
             
-            // Clear input
             userInput.value = '';
             userInput.style.height = 'auto';
 
-            // Show typing indicator
             showTyping();
 
-            // Send to backend
             fetch('/ask', {
                 method: 'POST',
                 headers: {
@@ -210,11 +201,7 @@
             });
         });
 
-        // Focus input on load
         userInput.focus();
     </script>
 </body>
 </html>
-
-
-
