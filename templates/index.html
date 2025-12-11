@@ -1,51 +1,220 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>L&H FAQ BOT</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L&H FAQ Bot</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
 <body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <button class="new-chat-btn" onclick="clearChat()">
+                <span>✨</span>
+                <span>New Chat</span>
+            </button>
 
-<div class="chat-container">
+            <div class="logo-section">
+                <img src="{{ url_for('static', filename='l&h_logo.png') }}" class="logo-img" alt="L&H Logo">
+                <div class="logo-text">FAQ Assistant</div>
+            </div>
 
-    <img src="{{ url_for('static', filename='l&h_logo.png') }}" class="logo">
+            <div class="sidebar-footer">
+                Powered by Life & Half
+            </div>
+        </div>
 
-    <h2 class="title">L&H FAQ BOT</h2>
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="chat-header">
+                <div class="chat-title">L&H FAQ Bot</div>
+            </div>
 
-    <div id="chat-box"></div>
+            <div class="chat-messages" id="chatMessages">
+                <!-- Empty State -->
+                <div class="empty-state" id="emptyState">
+                    <img src="{{ url_for('static', filename='l&h_logo.png') }}" class="empty-logo-img" alt="L&H Logo">
+                    <h1 class="empty-title">How can I help you today?</h1>
+                    <p class="empty-subtitle">Ask me anything about Life & Half services, policies, or general inquiries</p>
+                    
+                    <div class="suggestion-cards">
+                        <div class="suggestion-card" onclick="sendSuggestion('What services does Life & Half offer?')">
+                            <div class="suggestion-icon">🎯</div>
+                            <div class="suggestion-text">What services does Life & Half offer?</div>
+                        </div>
+                        <div class="suggestion-card" onclick="sendSuggestion('Tell me about your pricing')">
+                            <div class="suggestion-icon">💰</div>
+                            <div class="suggestion-text">Tell me about your pricing</div>
+                        </div>
+                        <div class="suggestion-card" onclick="sendSuggestion('How do I contact support?')">
+                            <div class="suggestion-icon">📞</div>
+                            <div class="suggestion-text">How do I contact support?</div>
+                        </div>
+                        <div class="suggestion-card" onclick="sendSuggestion('What are your business hours?')">
+                            <div class="suggestion-icon">⏰</div>
+                            <div class="suggestion-text">What are your business hours?</div>
+                        </div>
+                    </div>
+                </div>
 
-    <form id="chat-form">
-        <input type="text" id="user-input" placeholder="Type your question..." required>
-        <button>Send</button>
-    </form>
+                <!-- Typing Indicator -->
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="message-avatar bot-avatar">
+                        <img src="{{ url_for('static', filename='l&h_logo.png') }}" alt="Bot" class="avatar-img">
+                    </div>
+                    <div class="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            </div>
 
-</div>
+            <div class="input-container">
+                <form id="chatForm" class="input-wrapper">
+                    <textarea 
+                        id="userInput" 
+                        class="chat-input" 
+                        placeholder="Message L&H FAQ Bot..." 
+                        rows="1"
+                        required
+                    ></textarea>
+                    <button type="submit" class="send-button" id="sendButton">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M7 11L12 6L17 11M12 18V7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </form>
+                <div class="input-hint">Press Enter to send, Shift + Enter for new line</div>
+            </div>
+        </div>
+    </div>
 
-<script>
-    const form = document.getElementById("chat-form");
-    const chatBox = document.getElementById("chat-box");
+    <script>
+        const chatForm = document.getElementById('chatForm');
+        const chatMessages = document.getElementById('chatMessages');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const emptyState = document.getElementById('emptyState');
 
-    form.addEventListener("submit", function (e) {
-        e.preventDefault();
-
-        let text = document.getElementById("user-input").value;
-        document.getElementById("user-input").value = "";
-
-        chatBox.innerHTML += `<div class="user">${text}</div>`;
-
-        fetch("/ask", {
-            method: "POST",
-            headers: {"Content-Type": "application/x-www-form-urlencoded"},
-            body: "message=" + encodeURIComponent(text)
-        })
-        .then(res => res.json())
-        .then(data => {
-            chatBox.innerHTML += `<div class="bot">${data.reply}</div>`;
-            chatBox.scrollTop = chatBox.scrollHeight;
+        // Auto-resize textarea
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 200) + 'px';
         });
-    });
-</script>
 
+        // Handle Enter key (send) vs Shift+Enter (new line)
+        userInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatForm.dispatchEvent(new Event('submit'));
+            }
+        });
+
+        function clearChat() {
+            const messagesContainer = chatMessages;
+            const messages = messagesContainer.querySelectorAll('.message');
+            messages.forEach(msg => msg.remove());
+            emptyState.style.display = 'flex';
+        }
+
+        function sendSuggestion(text) {
+            userInput.value = text;
+            chatForm.dispatchEvent(new Event('submit'));
+        }
+
+        function addMessage(text, isUser) {
+            // Hide empty state
+            if (emptyState) {
+                emptyState.style.display = 'none';
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+            
+            if (isUser) {
+                messageDiv.innerHTML = `
+                    <div class="message-avatar user-avatar">You</div>
+                    <div class="message-content">
+                        <div class="message-text">${text}</div>
+                    </div>
+                `;
+            } else {
+                messageDiv.innerHTML = `
+                    <div class="message-avatar bot-avatar">
+                        <img src="{{ url_for('static', filename='l&h_logo.png') }}" alt="Bot" class="avatar-img">
+                    </div>
+                    <div class="message-content">
+                        <div class="message-text">${text}</div>
+                    </div>
+                `;
+            }
+            
+            chatMessages.insertBefore(messageDiv, typingIndicator);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTyping() {
+            typingIndicator.classList.add('active');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function hideTyping() {
+            typingIndicator.classList.remove('active');
+        }
+
+        chatForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            // Disable input while processing
+            userInput.disabled = true;
+            sendButton.disabled = true;
+
+            // Add user message
+            addMessage(text, true);
+            
+            // Clear input
+            userInput.value = '';
+            userInput.style.height = 'auto';
+
+            // Show typing indicator
+            showTyping();
+
+            // Send to backend
+            fetch('/ask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'message=' + encodeURIComponent(text)
+            })
+            .then(res => res.json())
+            .then(data => {
+                hideTyping();
+                addMessage(data.reply, false);
+            })
+            .catch(error => {
+                hideTyping();
+                addMessage('Sorry, something went wrong. Please try again.', false);
+                console.error('Error:', error);
+            })
+            .finally(() => {
+                userInput.disabled = false;
+                sendButton.disabled = false;
+                userInput.focus();
+            });
+        });
+
+        // Focus input on load
+        userInput.focus();
+    </script>
 </body>
 </html>
+
+
+
